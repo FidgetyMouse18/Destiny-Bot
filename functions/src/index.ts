@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const axios = require('axios').default;
 import { parse } from "node-html-parser";
 import { EmbedBuilder, WebhookClient } from "discord.js";
 
@@ -11,13 +12,16 @@ function capitalizeFirstLetter(string: string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-exports.scheduledFunctionCrontab = functions.pubsub
-  .schedule("0 12 * * *")
+exports.scheduledFunctionCrontab = functions
+.region('australia-southeast1')
+.runWith({ timeoutSeconds: 60 })
+.pubsub
+  .schedule("30 3 * * *")
   .timeZone("Australia/Brisbane")
   .onRun((context: any) => {
     console.log("Fetching Lost Sector");
 
-    fetch("https://todayindestiny.com/").then((res) => {
+    axios.get("https://todayindestiny.com/").then((res:any) => {
       let lostSector = "Not Found";
       let detailString = "";
       let detailJSON = {
@@ -29,11 +33,11 @@ exports.scheduledFunctionCrontab = functions.pubsub
         exotic: "unknown",
       };
 
-      if (!res.ok) {
+      if (res.status !== 200) {
         console.log("Not Ok");
         return;
       }
-      res.text().then((text) => {
+      let text:string = res.data
         const root = parse(text);
         let t = root.querySelectorAll(".eventCardContainer");
         t.forEach((e) => {
@@ -125,7 +129,7 @@ exports.scheduledFunctionCrontab = functions.pubsub
             },
           ]);
         webhookDoc.get().then((snapshot:any) => {
-          snapshot.webhooks.forEach((url:string) => {
+          snapshot.data().webhooks.forEach((url:string) => {
             const webhookClient = new WebhookClient({
               url: url,
             });
@@ -135,7 +139,7 @@ exports.scheduledFunctionCrontab = functions.pubsub
           });
         })
         
-      });
+      
     });
 
     return null;
